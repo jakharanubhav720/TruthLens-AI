@@ -360,19 +360,106 @@ async def detect_deepfake(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=f"Could not analyze image: {str(e)}")
 
 
+
+async def google_fact_check(query: str):
+    api_key = os.getenv("GOOGLE_FACT_CHECK_API_KEY", "").strip()
+
+    if not api_key:
+        return {"status": "unavailable", "results": []}
+
+    url = "https://factchecktools.googleapis.com/v1alpha1/claims:search"
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(
+                url,
+                params={
+                    "query": query[:500],
+                    "key": api_key,
+                    "pageSize": 5,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        results = []
+
+        for claim in data.get("claims", []):
+            reviews = []
+
+            for review in claim.get("claimReview", []):
+                reviews.append({
+                    "publisher": review.get("publisher", {}).get("name"),
+                    "site": review.get("publisher", {}).get("site"),
+                    "title": review.get("title"),
+                    "rating": review.get("textualRating"),
+                    "url": review.get("url"),
+                    "reviewDate": review.get("reviewDate"),
+                })
+
+            results.append({
+                "claim": claim.get("text"),
+                "claimant": claim.get("claimant"),
+                "reviews": reviews,
+            })
+
+        return {
+            "status": "found" if results else "not_found",
+            "results": results,
+        }
+
+    except Exception as exc:
+        print(f"Google Fact Check API error: {exc}")
+        return {"status": "error", "results": []}
+
 @app.post("/api/detect/fake-news")
 async def detect_fake_news(payload: FakeNewsPayload):
     if not payload.content.strip():
-        raise HTTPException(status_code=400, detail="Text or URL cannot be empty.")
+        raise HTTPException(
+            status_code=400,
+            detail="Text or URL cannot be empty."
+        )
+
     source_url = None
-    text = payload.content
+    text = payload.content.strip()
+
     if payload.is_url:
-        title, article_text, final_url = await fetch_article(payload.content.strip())
+        title, article_text, final_url = await fetch_article(text)
         source_url = final_url
         text = f"{title}. {article_text}"
+
         if len(text) < 80:
-            raise HTTPException(status_code=422, detail="The page did not contain enough readable article text.")
-    return text_credibility_inference(text, source_url)
+            raise HTTPException(
+                status_code=422,
+                detail="The page did not contain enough readable article text."
+            )
+
+    result = text_credibility_inference(text, source_url)
+    fact_check = await google_fact_check(text)
+
+    result["factCheck"] = fact_check
+
+    if fact_check["status"] == "found":
+        result["verification"] = {
+            "status": "fact_checked",
+            "label": "Published fact-checks found",
+            "message": "Review the published fact-checks below."
+        }
+    elif fact_check["status"] == "not_found":
+        result["verification"] = {
+            "status": "unverified",
+            "label": "No matching fact-check found",
+            "message": "No matching published fact-check was found."
+        }
+    else:
+        result["verification"] = {
+            "status": "unavailable",
+            "label": "Fact-check unavailable",
+            "message": "Google Fact Check could not be reached or is not configured."
+        }
+
+    return result
+
 
 
 @app.get("/api/health")
