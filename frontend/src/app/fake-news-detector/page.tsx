@@ -104,30 +104,151 @@ export default function FakeNewsPage() {
             </div>
           </div>
 
-          <div>
-            <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-cyan-400" /> Source Cross-Verification
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {result.sources.map((src, idx) => (
-                <div key={idx} className="p-4 bg-slate-950 border border-slate-800 rounded-xl flex flex-col justify-between gap-3">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold text-sm text-slate-200">{src.domain}</span>
-                    <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-500">Stance:</span>
-                    <span className={`font-semibold capitalize ${src.stance === 'contradicts' ? 'text-red-400' : 'text-green-400'}`}>{src.stance}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-500">Trust:</span>
-                    <span className="text-slate-300 font-mono">{src.trustScore}%</span>
-                  </div>
-                </div>
-              ))}
+          
+<div>
+  <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wider mb-4 flex items-center gap-2">
+    <CheckCircle className="w-4 h-4 text-cyan-400" /> Source Cross-Verification
+  </h3>
+
+  {result.verification && (
+    <div className="mb-4 p-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5">
+      <p className="font-semibold text-slate-200">
+        {result.verification.label}
+      </p>
+      <p className="text-sm text-slate-400 mt-1">
+        {result.verification.message}
+      </p>
+    </div>
+  )}
+
+  {result.factCheck?.status === 'found' &&
+    result.factCheck.results.map((claim, claimIdx) => (
+      <div
+        key={`${claim.claim}-${claimIdx}`}
+        className="mb-4 p-4 bg-slate-950 border border-slate-800 rounded-xl"
+      >
+        <p className="text-sm font-semibold text-slate-200">
+          Checked claim
+        </p>
+        <p className="text-sm text-slate-300 mt-2">{claim.claim}</p>
+
+        {claim.reviews.map((review, reviewIdx) => {
+          const reviewUrl =
+            review.url.match(/\((https?:\/\/[^)]+)\)/)?.[1] ??
+            review.url;
+
+          const isFalse = /false|pants on fire|misleading|incorrect/i.test(
+            review.rating
+          );
+
+          return (
+            <div
+              key={`${review.site}-${reviewIdx}`}
+              className="mt-4 pt-4 border-t border-slate-800"
+            >
+              <p className="font-semibold text-slate-200">
+                {review.publisher || review.site}
+              </p>
+
+              <p className="text-sm text-slate-300 mt-1">
+                {review.title}
+              </p>
+
+              <p className="text-sm mt-2">
+                <span className="text-slate-500">Published rating: </span>
+                <span
+                  className={`font-semibold ${
+                    isFalse ? 'text-red-400' : 'text-cyan-300'
+                  }`}
+                >
+                  {review.rating || 'Not specified'}
+                </span>
+              </p>
+
+              {review.reviewDate && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Review date:{' '}
+                  {new Date(review.reviewDate).toLocaleDateString()}
+                </p>
+              )}
+
+              {reviewUrl.startsWith('https://') ||
+              reviewUrl.startsWith('http://') ? (
+                <a
+                  href={reviewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 underline"
+                >
+                  Read original fact-check
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    ))}
+
+  {result.factCheck?.status === 'not_found' && (
+    <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-sm text-amber-300">
+      No matching published fact-checks were found. This does not prove the
+      claim is true.
+    </div>
+  )}
+
+  {result.factCheck?.status === 'error' && (
+    <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-sm text-red-300">
+      The published fact-check database could not be checked. Please try again.
+    </div>
+  )}
+
+  {result.factCheck?.status !== 'found' &&
+    result.sources.length > 0 && (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+        {result.sources.map((src, idx) => (
+          <div
+            key={idx}
+            className="p-4 bg-slate-950 border border-slate-800 rounded-xl flex flex-col justify-between gap-3"
+          >
+            <div className="flex justify-between items-center">
+              <span className="font-semibold text-sm text-slate-200">
+                {src.domain}
+              </span>
+              <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+            </div>
+
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-500">Stance:</span>
+              <span
+                className={`font-semibold capitalize ${
+                  src.stance === 'contradicts'
+                    ? 'text-red-400'
+                    : src.stance === 'supports'
+                      ? 'text-green-400'
+                      : 'text-slate-300'
+                }`}
+              >
+                {src.stance}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-500">Trust:</span>
+              <span className="text-slate-300 font-mono">
+                {src.trustScore}%
+              </span>
             </div>
           </div>
-        </div>
+        ))}
+      </div>
+    )}
+</div>
+
+            
+              
+               
+         
       )}
     </div>
   );
