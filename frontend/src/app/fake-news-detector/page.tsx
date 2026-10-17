@@ -109,6 +109,66 @@ export default function FakeNewsPage() {
   <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wider mb-4 flex items-center gap-2">
     <CheckCircle className="w-4 h-4 text-cyan-400" /> Source Cross-Verification
   </h3>
+              {result.verification && (
+              <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                <p className="font-semibold text-cyan-300">
+                  {result.verification.label}
+                </p>
+                <p className="mt-1 text-sm text-slate-400">
+                  {result.verification.message}
+                </p>
+              </div>
+            )}
+
+            {result.factCheck?.status === 'found' &&
+              result.factCheck.results.map((claim, claimIdx) => (
+                <div
+                  key={claimIdx}
+                  className="mb-4 rounded-xl border border-slate-800 bg-slate-950 p-4"
+                >
+                  <p className="text-sm text-slate-200">{claim.claim}</p>
+
+                  {claim.reviews.map((review, reviewIdx) => (
+                    <div
+                      key={reviewIdx}
+                      className="mt-3 border-t border-slate-800 pt-3"
+                    >
+                      <p className="font-semibold text-slate-200">
+                        {review.publisher || review.site}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        {review.title}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-300">
+                        Published rating:{' '}
+                        <span className="font-semibold text-red-400">
+                          {review.rating}
+                        </span>
+                      </p>
+                      {review.reviewDate && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          Reviewed: {new Date(review.reviewDate).toLocaleDateString()}
+                        </p>
+                      )}
+                      <a
+                        href={review.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-2 text-sm text-cyan-400 underline"
+                      >
+                        Read original fact-check
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              ))}
+
+            {result.factCheck?.status === 'not_found' && (
+              <p className="text-sm text-slate-400">
+                No matching published fact-checks were found.
+              </p>
+            )}
 
   {result.verification && (
     <div className="mb-4 p-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5">
