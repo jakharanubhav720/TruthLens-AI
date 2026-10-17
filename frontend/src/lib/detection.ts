@@ -1,4 +1,4 @@
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+const API_URL = 'https://truthlens-backend-83ph.onrender.com';
 
 export interface Signal {
   name: string;
