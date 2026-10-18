@@ -73,10 +73,14 @@ export default function FakeNewsPage() {
         <div className="mt-8 bg-slate-900/70 border border-slate-800 rounded-2xl p-8 flex flex-col gap-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-b border-slate-800 pb-8">
             <div className="flex items-center gap-6">
-              <ScoreRing score={result.score} label="Trust" />
+             <ScoreRing score={result.score} label="Credibility Score" />
               <div>
                 <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                  result.risk === 'high' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-green-500/20 text-green-400 border border-green-500/30'
+                  result.risk === 'high'
+                   ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                      : result.risk === 'medium'
+                   ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                      : 'bg-green-500/20 text-green-400 border border-green-500/30'
                 }`}>
                   {result.risk} Credibility Risk
                 </span>
@@ -104,56 +108,19 @@ export default function FakeNewsPage() {
             </div>
           </div>
 
-          
+ 
+          <div>
+            <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-cyan-400" />
+              Source Cross-Verification
+            </h3>
 
-{result.verification && (
-  <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
-    <p className="font-semibold text-cyan-300">
-      {result.verification.label}
-    </p>
-    <p className="mt-1 text-sm text-slate-400">
-      {result.verification.message}
-    </p>
-  </div>
-)}
-
-{result.factCheck?.status === 'found' &&
-  result.factCheck.results.map((claim, idx) => (
-    <div
-      key={idx}
-      className="mb-4 rounded-xl border border-slate-800 bg-slate-950 p-4"
-    >
-      <p className="text-sm text-slate-200">{claim.claim}</p>
-
-      {claim.reviews.map((review, reviewIdx) => (
-        <div key={reviewIdx} className="mt-3 border-t border-slate-800 pt-3">
-          <p className="font-semibold text-slate-200">
-            {review.publisher || review.site}
-          </p>
-          <p className="mt-1 text-sm text-slate-400">{review.title}</p>
-          <p className="mt-2 text-sm font-semibold text-red-400">
-            Rating: {review.rating}
-          </p>
-          <a
-            href={review.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 inline-flex items-center gap-2 text-sm text-cyan-400 underline"
-          >
-            Read original fact-check
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        </div>
-      ))}
-    </div>
-  ))}
-
-              {result.verification && (
-              <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+            {result.verification && (
+              <div className="mb-4 p-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5">
                 <p className="font-semibold text-cyan-300">
                   {result.verification.label}
                 </p>
-                <p className="mt-1 text-sm text-slate-400">
+                <p className="text-sm text-slate-400 mt-1">
                   {result.verification.message}
                 </p>
               </div>
@@ -162,186 +129,118 @@ export default function FakeNewsPage() {
             {result.factCheck?.status === 'found' &&
               result.factCheck.results.map((claim, claimIdx) => (
                 <div
-                  key={claimIdx}
-                  className="mb-4 rounded-xl border border-slate-800 bg-slate-950 p-4"
+                  key={`${claim.claim}-${claimIdx}`}
+                  className="mb-4 p-4 bg-slate-950 border border-slate-800 rounded-xl"
                 >
-                  <p className="text-sm text-slate-200">{claim.claim}</p>
+                  <p className="text-sm font-semibold text-slate-200">
+                    Checked claim
+                  </p>
+                  <p className="text-sm text-slate-300 mt-2">
+                    {claim.claim}
+                  </p>
 
-                  {claim.reviews.map((review, reviewIdx) => (
-                    <div
-                      key={reviewIdx}
-                      className="mt-3 border-t border-slate-800 pt-3"
-                    >
-                      <p className="font-semibold text-slate-200">
-                        {review.publisher || review.site}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-400">
-                        {review.title}
-                      </p>
-                      <p className="mt-2 text-sm text-slate-300">
-                        Published rating:{' '}
-                        <span className="font-semibold text-red-400">
-                          {review.rating}
-                        </span>
-                      </p>
-                      {review.reviewDate && (
-                        <p className="mt-1 text-xs text-slate-500">
-                          Reviewed: {new Date(review.reviewDate).toLocaleDateString()}
-                        </p>
-                      )}
-                      <a
-                        href={review.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-2 inline-flex items-center gap-2 text-sm text-cyan-400 underline"
+                  {claim.reviews.map((review, reviewIdx) => {
+                    const reviewUrl =
+                      review.url.match(/\((https?:\/\/[^)]+)\)/)?.[1] ??
+                      review.url;
+
+                    const isFalse =
+                      /false|pants on fire|misleading|incorrect/i.test(
+                        review.rating || ''
+                      );
+
+                    return (
+                      <div
+                        key={`${review.site}-${reviewIdx}`}
+                        className="mt-4 pt-4 border-t border-slate-800"
                       >
-                        Read original fact-check
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    </div>
-                  ))}
+                        <p className="font-semibold text-slate-200">
+                          {review.publisher || review.site}
+                        </p>
+
+                        <p className="text-sm text-slate-300 mt-1">
+                          {review.title}
+                        </p>
+
+                        <p className="text-sm mt-2">
+                          <span className="text-slate-500">
+                            Published rating:{' '}
+                          </span>
+                          <span
+                            className={`font-semibold ${
+                              isFalse
+                                ? 'text-red-400'
+                                : 'text-cyan-300'
+                            }`}
+                          >
+                            {review.rating || 'Not specified'}
+                          </span>
+                        </p>
+
+                        {review.reviewDate && (
+                          <p className="text-xs text-slate-500 mt-1">
+                            Review date:{' '}
+                            {new Date(
+                              review.reviewDate
+                            ).toLocaleDateString()}
+                          </p>
+                        )}
+
+                        {/^https?:\/\//i.test(reviewUrl) && (
+                          <a
+                            href={reviewUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-3 inline-flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 underline"
+                          >
+                            Read original fact-check
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
 
             {result.factCheck?.status === 'not_found' && (
-              <p className="text-sm text-slate-400">
-                No matching published fact-checks were found.
-              </p>
+              <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-sm text-amber-300">
+                No matching published fact-checks were found. This does not
+                prove the claim is true.
+              </div>
             )}
 
-  {result.verification && (
-    <div className="mb-4 p-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5">
-      <p className="font-semibold text-slate-200">
-        {result.verification.label}
-      </p>
-      <p className="text-sm text-slate-400 mt-1">
-        {result.verification.message}
-      </p>
-    </div>
-  )}
+            {result.factCheck?.status === 'error' && (
+              <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-sm text-red-300">
+                The published fact-check database could not be checked.
+                Please try again.
+              </div>
+            )}
 
-  {result.factCheck?.status === 'found' &&
-    result.factCheck.results.map((claim, claimIdx) => (
-      <div
-        key={`${claim.claim}-${claimIdx}`}
-        className="mb-4 p-4 bg-slate-950 border border-slate-800 rounded-xl"
-      >
-        <p className="text-sm font-semibold text-slate-200">
-          Checked claim
-        </p>
-        <p className="text-sm text-slate-300 mt-2">{claim.claim}</p>
-
-        {claim.reviews.map((review, reviewIdx) => {
-          const reviewUrl =
-            review.url.match(/\((https?:\/\/[^)]+)\)/)?.[1] ??
-            review.url;
-
-          const isFalse = /false|pants on fire|misleading|incorrect/i.test(
-            review.rating
-          );
-
-          return (
-            <div
-              key={`${review.site}-${reviewIdx}`}
-              className="mt-4 pt-4 border-t border-slate-800"
-            >
-              <p className="font-semibold text-slate-200">
-                {review.publisher || review.site}
-              </p>
-
-              <p className="text-sm text-slate-300 mt-1">
-                {review.title}
-              </p>
-
-              <p className="text-sm mt-2">
-                <span className="text-slate-500">Published rating: </span>
-                <span
-                  className={`font-semibold ${
-                    isFalse ? 'text-red-400' : 'text-cyan-300'
-                  }`}
-                >
-                  {review.rating || 'Not specified'}
-                </span>
-              </p>
-
-              {review.reviewDate && (
-                <p className="text-xs text-slate-500 mt-1">
-                  Review date:{' '}
-                  {new Date(review.reviewDate).toLocaleDateString()}
-                </p>
-              )}
-
-              {reviewUrl.startsWith('https://') ||
-              reviewUrl.startsWith('http://') ? (
-                <a
-                  href={reviewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 underline"
-                >
-                  Read original fact-check
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-    ))}
-
-  {result.factCheck?.status === 'not_found' && (
-    <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-sm text-amber-300">
-      No matching published fact-checks were found. This does not prove the
-      claim is true.
-    </div>
-  )}
-
-  {result.factCheck?.status === 'error' && (
-    <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-sm text-red-300">
-      The published fact-check database could not be checked. Please try again.
-    </div>
-  )}
-
-  {result.factCheck?.status !== 'found' &&
-    result.sources.length > 0 && (
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-        {result.sources.map((src, idx) => (
-          <div
-            key={idx}
-            className="p-4 bg-slate-950 border border-slate-800 rounded-xl flex flex-col justify-between gap-3"
-          >
-            <div className="flex justify-between items-center">
-              <span className="font-semibold text-sm text-slate-200">
-                {src.domain}
-              </span>
-              <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
-            </div>
-
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-slate-500">Stance:</span>
-              <span
-                className={`font-semibold capitalize ${
-                  src.stance === 'contradicts'
-                    ? 'text-red-400'
-                    : src.stance === 'supports'
-                      ? 'text-green-400'
-                      : 'text-slate-300'
-                }`}
-              >
-                {src.stance}
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-slate-500">Trust:</span>
-              <span className="text-slate-300 font-mono">
-                {src.trustScore}%
-              </span>
-            </div>
+            {!result.factCheck && result.sources.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {result.sources.map((src, idx) => (
+                  <div
+                    key={idx}
+                    className="p-4 bg-slate-950 border border-slate-800 rounded-xl"
+                  >
+                    <p className="font-semibold text-sm text-slate-200">
+                      {src.domain}
+                    </p>
+                    <p className="text-xs mt-2 text-slate-400">
+                      Stance: {src.stance}
+                    </p>
+                    <p className="text-xs mt-1 text-slate-400">
+                      Trust: {src.trustScore}%
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        ))}
-      </div>
-    )}
+         
+
+
 </div>
 
             
