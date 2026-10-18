@@ -39,6 +39,21 @@ export interface DeepfakeResult {
   };
 }
 
+export interface FactCheckReview {
+  publisher?: string;
+  site?: string;
+  title?: string;
+  url: string;
+  rating?: string;
+  reviewDate?: string;
+}
+
+export interface FactCheckResult {
+  claim: string;
+  claimant?: string | null;
+  reviews: FactCheckReview[];
+}
+
 export interface FakeNewsResult {
   score: number;
   risk: 'low' | 'medium' | 'high';
@@ -48,6 +63,14 @@ export interface FakeNewsResult {
   sources: SourceVerification[];
   modelsUsed: string[];
   limitations?: string[];
+  verification?: {
+    label: string;
+    message: string;
+  };
+  factCheck?: {
+    status: 'found' | 'not_found' | 'error';
+    results: FactCheckResult[];
+  };
 }
 
 async function parseResponse(res: Response) {
