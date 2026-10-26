@@ -52,6 +52,90 @@ function textCredibilityInference(text: string, sourceUrl?: string) {
   };
 }
 
+type FactCheckStatus = 'found' | 'not_found' | 'error' | 'unavailable';
+
+async function googleFactCheck(query: string): Promise<{ status: FactCheckStatus; results: unknown[] }> {
+  const apiKey = process.env.GOOGLE_FACT_CHECK_API_KEY?.trim();
+  if (!apiKey) return { status: 'unavailable', results: [] };
+
+  try {
+    const url = new URL('https://factchecktools.googleapis.com/v1alpha1/claims:search');
+    url.searchParams.set('query', query.slice(0, 500));
+    url.searchParams.set('key', apiKey);
+    url.searchParams.set('pageSize', '5');
+
+    const response = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`Fact Check API returned ${response.status}`);
+    const data = await response.json();
+
+    const results = (data.claims || []).map((claim: {
+      text?: string;
+      claimant?: string;
+      claimReview?: {
+        publisher?: { name?: string; site?: string };
+        title?: string;
+        textualRating?: string;
+        url?: string;
+        reviewDate?: string;
+      }[];
+    }) => ({
+      claim: claim.text,
+      claimant: claim.claimant ?? null,
+      reviews: (claim.claimReview || []).map((review) => ({
+        publisher: review.publisher?.name,
+        site: review.publisher?.site,
+        title: review.title,
+        rating: review.textualRating,
+        url: review.url || '',
+        reviewDate: review.reviewDate,
+      })),
+    }));
+
+    return { status: results.length ? 'found' : 'not_found', results };
+  } catch (error) {
+    console.error('Google Fact Check API error', error);
+    return { status: 'error', results: [] };
+  }
+}
+
+function withFactCheck<T extends { modelsUsed: string[] }>(
+  result: T,
+  factCheck: { status: FactCheckStatus; results: unknown[] }
+) {
+  let modelsUsed = result.modelsUsed;
+  let verification = {
+    status: 'unavailable',
+    label: 'Fact-check unavailable',
+    message: 'Add GOOGLE_FACT_CHECK_API_KEY to the frontend server environment to enable published fact-checks.',
+  };
+
+  if (factCheck.status === 'found' || factCheck.status === 'not_found') {
+    modelsUsed = [...result.modelsUsed, 'Google Fact Check Tools'];
+  }
+
+  if (factCheck.status === 'found') {
+    verification = {
+      status: 'fact_checked',
+      label: 'Published fact-checks found',
+      message: 'Review the published fact-checks below.',
+    };
+  } else if (factCheck.status === 'not_found') {
+    verification = {
+      status: 'unverified',
+      label: 'No matching fact-check found',
+      message: 'No matching published fact-check was found. This does not prove the claim is true.',
+    };
+  } else if (factCheck.status === 'error') {
+    verification = {
+      status: 'unavailable',
+      label: 'Fact-check unavailable',
+      message: 'Google Fact Check could not be reached. The language screening above is still available.',
+    };
+  }
+
+  return { ...result, modelsUsed, factCheck, verification };
+}
+
 async function fetchArticle(url: string) {
   let parsed: URL;
   try {
@@ -86,17 +170,20 @@ export async function POST(request: Request) {
     const isUrl = Boolean(payload?.is_url);
     if (!content) return NextResponse.json({ detail: 'Text or URL cannot be empty.' }, { status: 400 });
 
+    let sourceUrl: string | undefined;
+    let text = content;
     if (isUrl) {
       const article = await fetchArticle(content);
       if (article instanceof NextResponse) return article;
-      const text = `${article.title}. ${article.articleText}`;
+      text = `${article.title}. ${article.articleText}`;
       if (text.length < 80) {
         return NextResponse.json({ detail: 'The page did not contain enough readable article text.' }, { status: 422 });
       }
-      return NextResponse.json(textCredibilityInference(text, article.finalUrl));
+      sourceUrl = article.finalUrl;
     }
 
-    return NextResponse.json(textCredibilityInference(content));
+    const factCheck = await googleFactCheck(text);
+    return NextResponse.json(withFactCheck(textCredibilityInference(text, sourceUrl), factCheck));
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Analysis failed.';
     return NextResponse.json({ detail: message }, { status: 502 });

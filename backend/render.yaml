@@ -7,5 +7,7 @@ services:
     envVars:
       - key: REALITY_DEFENDER_API_KEY
         sync: false
+      - key: GOOGLE_FACT_CHECK_API_KEY
+        sync: false
       - key: TRUTHLENS_MODEL
         value: prithivMLmods/deepfake-detector-model-v1

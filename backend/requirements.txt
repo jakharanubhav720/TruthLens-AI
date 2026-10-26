@@ -10,4 +10,3 @@ safetensors>=0.4
 realitydefender
 torch
 torchvision
-api key = rd_acfbc40c77001e29_1095423adf5acefc3b4014a3611f6df4

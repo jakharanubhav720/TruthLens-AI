@@ -18,7 +18,9 @@ For local development:
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-The frontend does not contain the Reality Defender API key. Keep that key in the backend environment only.
+Fake-news scans call the same-origin route `/api/detect/fake-news`. That route reads `GOOGLE_FACT_CHECK_API_KEY` on the server and queries Google's Fact Check Tools API. Deepfake scans still call the FastAPI backend.
+
+Keep `GOOGLE_FACT_CHECK_API_KEY` and `REALITY_DEFENDER_API_KEY` server-side. Do not prefix either key with `NEXT_PUBLIC_`.
 
 ## Deploy
 

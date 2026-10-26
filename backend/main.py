@@ -7,6 +7,26 @@ from urllib.parse import urlparse
 import httpx
 from bs4 import BeautifulSoup
 
+
+def _load_local_env() -> None:
+    """Load backend/.env without overriding variables already set by the host."""
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if not os.path.isfile(env_path):
+        return
+    with open(env_path, encoding="utf-8") as handle:
+        for raw_line in handle:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+_load_local_env()
+
 app = FastAPI(title="TruthLens AI Engine", version="4.0.0")
 
 app.add_middleware(
@@ -29,6 +49,7 @@ _PROCESSOR = None
 _DEVICE = None
 _MODEL_ERROR = None
 REALITY_DEFENDER_API_KEY = os.getenv("REALITY_DEFENDER_API_KEY", "").strip()
+GOOGLE_FACT_CHECK_API_KEY = os.getenv("GOOGLE_FACT_CHECK_API_KEY", "").strip()
 
 
 def clamp(v, lo=0, hi=100):
@@ -360,6 +381,84 @@ async def detect_deepfake(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=f"Could not analyze image: {str(e)}")
 
 
+async def google_fact_check(query: str):
+    """Search Google's Fact Check Tools API. The key stays on the server."""
+    if not GOOGLE_FACT_CHECK_API_KEY:
+        return {"status": "unavailable", "results": []}
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(
+                "https://factchecktools.googleapis.com/v1alpha1/claims:search",
+                params={
+                    "query": query[:500],
+                    "key": GOOGLE_FACT_CHECK_API_KEY,
+                    "pageSize": 5,
+                },
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        results = []
+        for claim in data.get("claims", []):
+            reviews = []
+            for review in claim.get("claimReview", []):
+                publisher = review.get("publisher") or {}
+                reviews.append({
+                    "publisher": publisher.get("name"),
+                    "site": publisher.get("site"),
+                    "title": review.get("title"),
+                    "rating": review.get("textualRating"),
+                    "url": review.get("url") or "",
+                    "reviewDate": review.get("reviewDate"),
+                })
+            results.append({
+                "claim": claim.get("text"),
+                "claimant": claim.get("claimant"),
+                "reviews": reviews,
+            })
+
+        return {
+            "status": "found" if results else "not_found",
+            "results": results,
+        }
+    except Exception as exc:
+        print(f"Google Fact Check API error: {exc}")
+        return {"status": "error", "results": []}
+
+
+def attach_fact_check(result: dict, fact_check: dict) -> dict:
+    result["factCheck"] = fact_check
+    status = fact_check.get("status")
+    if status == "found":
+        result["verification"] = {
+            "status": "fact_checked",
+            "label": "Published fact-checks found",
+            "message": "Review the published fact-checks below.",
+        }
+        result["modelsUsed"] = result.get("modelsUsed", []) + ["Google Fact Check Tools"]
+    elif status == "not_found":
+        result["verification"] = {
+            "status": "unverified",
+            "label": "No matching fact-check found",
+            "message": "No matching published fact-check was found. This does not prove the claim is true.",
+        }
+        result["modelsUsed"] = result.get("modelsUsed", []) + ["Google Fact Check Tools"]
+    elif status == "error":
+        result["verification"] = {
+            "status": "unavailable",
+            "label": "Fact-check unavailable",
+            "message": "Google Fact Check could not be reached. The language screening above is still available.",
+        }
+    else:
+        result["verification"] = {
+            "status": "unavailable",
+            "label": "Fact-check unavailable",
+            "message": "Add GOOGLE_FACT_CHECK_API_KEY to the backend .env file to enable published fact-checks.",
+        }
+    return result
+
+
 @app.post("/api/detect/fake-news")
 async def detect_fake_news(payload: FakeNewsPayload):
     if not payload.content.strip():
@@ -372,7 +471,9 @@ async def detect_fake_news(payload: FakeNewsPayload):
         text = f"{title}. {article_text}"
         if len(text) < 80:
             raise HTTPException(status_code=422, detail="The page did not contain enough readable article text.")
-    return text_credibility_inference(text, source_url)
+    result = text_credibility_inference(text, source_url)
+    fact_check = await google_fact_check(text)
+    return attach_fact_check(result, fact_check)
 
 
 @app.get("/api/health")
@@ -383,4 +484,5 @@ def health():
         "version": "4.0.0",
         "deepfakeModel": MODEL_ID,
         "modelLoaded": _MODEL is not None,
+        "factCheckConfigured": bool(GOOGLE_FACT_CHECK_API_KEY),
     }

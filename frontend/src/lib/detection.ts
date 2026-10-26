@@ -68,7 +68,7 @@ export interface FakeNewsResult {
     message: string;
   };
   factCheck?: {
-    status: 'found' | 'not_found' | 'error';
+    status: 'found' | 'not_found' | 'error' | 'unavailable';
     results: FactCheckResult[];
   };
 }
@@ -95,7 +95,7 @@ export async function analyzeDeepfakeImage(file: File): Promise<DeepfakeResult> 
 export async function analyzeFakeNews(content: string, isUrl = false): Promise<FakeNewsResult> {
   let res: Response;
   try {
-    res = await fetch(`${API_URL}/api/detect/fake-news`, {
+    res = await fetch('/api/detect/fake-news', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content, is_url: isUrl }),
