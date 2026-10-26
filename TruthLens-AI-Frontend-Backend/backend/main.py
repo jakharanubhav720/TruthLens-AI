@@ -362,7 +362,7 @@ async def detect_deepfake(file: UploadFile = File(...)):
 
 
 async def google_fact_check(query: str):
-    api_key = os.getenv("GOOGLE_FACT_CHECK_API_KEY", "").strip()
+    api_key = os.getenv("AIzaSyDCLMltSV1QmglZmAR7BlXWN9o01J4eA08", "").strip()
 
     if not api_key:
         return {"status": "unavailable", "results": []}
