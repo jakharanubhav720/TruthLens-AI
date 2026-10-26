@@ -362,7 +362,7 @@ async def detect_deepfake(file: UploadFile = File(...)):
 
 
 async def google_fact_check(query: str):
-    api_key = os.getenv("AIzaSyDCLMltSV1QmglZmAR7BlXWN9o01J4eA08", "").strip()
+    api_key = os.getenv("GOOGLE_FACT_CHECK_API_KEY", "").strip()
 
     if not api_key:
         return {"status": "unavailable", "results": []}
@@ -457,6 +457,9 @@ async def detect_fake_news(payload: FakeNewsPayload):
             "label": "Fact-check unavailable",
             "message": "Google Fact Check could not be reached or is not configured."
         }
+     print("FACT CHECK STATUS:", fact_check.get("status"))
+     print("RESPONSE KEYS:", list(result.keys()))
+
 
     return result
 
