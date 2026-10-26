@@ -457,10 +457,9 @@ async def detect_fake_news(payload: FakeNewsPayload):
             "label": "Fact-check unavailable",
             "message": "Google Fact Check could not be reached or is not configured."
         }
-     print("FACT CHECK STATUS:", fact_check.get("status"))
-     print("RESPONSE KEYS:", list(result.keys()))
-
-
+    print("FACT CHECK STATUS:", fact_check.get("status"))
+    print("RESPONSE KEYS:", list(result.keys()))
+     
     return result
 
 
